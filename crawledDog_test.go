@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"tierheim-crawler/repositories"
+	"tierheim-crawler/support"
 )
 
 func TestFromHtmlValid(t *testing.T) {
@@ -47,7 +47,7 @@ func TestFromHtmlValid(t *testing.T) {
 
 	collector := colly.NewCollector()
 	collector.OnHTML("main", func(element *colly.HTMLElement) {
-		foundDog, err := repositories.FromHtml(element)
+		foundDog, err := support.FromShowHtml(element)
 
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)

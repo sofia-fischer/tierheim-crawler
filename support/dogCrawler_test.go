@@ -1,4 +1,4 @@
-package repositories
+package support
 
 import (
 	"github.com/gocolly/colly"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestFromHtmlValid(t *testing.T) {
+func TestFromHtmlShow(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -45,8 +45,8 @@ func TestFromHtmlValid(t *testing.T) {
 	defer server.Close()
 
 	collector := colly.NewCollector()
-	collector.OnHTML("main", func(element *colly.HTMLElement) {
-		foundDog, err := FromHtml(element)
+	collector.OnHTML(indexQuery, func(element *colly.HTMLElement) {
+		foundDog, err := FromShowHtml(element)
 
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)
@@ -86,6 +86,40 @@ func TestFromHtmlValid(t *testing.T) {
 
 		if foundDog.Height != 60 {
 			t.Errorf("Expected height to be 60, but was %v", foundDog.Height)
+		}
+	})
+
+	collector.Visit(server.URL)
+}
+
+func TestFromHtmlIndex(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.Write([]byte(`<!DOCTYPE html><html>
+<div class="tsv-tiervermittlung-animal-name flex justify-center lg:justify-between items-center">
+      <h3 class="font-bold lg:flex-grow">AMY</h3>
+                  <span class="text-xs hidden lg:block tsv-tiervermittlung-animal-id">200078</span>
+    </div>
+</html>`))
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	collector := colly.NewCollector()
+	collector.OnHTML(indexQuery, func(element *colly.HTMLElement) {
+		foundDog, err := FromIndexHtml(element)
+
+		if err != nil {
+			t.Errorf("Expected no error, but got %v", err)
+		}
+
+		if foundDog.Name != "AMY" {
+			t.Errorf("Expected name to be HARCOS, but was %v", foundDog.Name)
+		}
+
+		if foundDog.ShelterIdentifier != "200078" {
+			t.Errorf("Expected shelter identifier to be 171066, but was %v", foundDog.ShelterIdentifier)
 		}
 	})
 

@@ -1,10 +1,9 @@
-package repositories
+package support
 
 import (
 	"errors"
 	"github.com/gocolly/colly"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,31 +11,24 @@ import (
 	"time"
 )
 
-type DogRepository struct {
-	Database *gorm.DB
+const baseUrl = "https://tierschutzverein-muenchen.de/tiervermittlung/tierheim/hunde"
+const showQuery = "main:not(.modal__content)"
+const indexQuery = "div.tsv-tiervermittlung-animal-name"
+
+func DogShow(identifier string, callBack colly.HTMLCallback) error {
+	collector := colly.NewCollector()
+	collector.OnHTML(showQuery, callBack)
+	return collector.Visit(baseUrl + "/" + identifier)
 }
 
-const germanTimeLayout = "02.01.2006"
-
-func (repository DogRepository) UpdateOrCreate(dogData models.Dog) models.Dog {
-
-	var existingDogs []models.Dog
-	repository.Database.Limit(1).Where("shelter_identifier = ?", dogData.ShelterIdentifier).Find(&existingDogs)
-
-	if len(existingDogs) == 0 {
-		dogData.ID = uuid.NewString()
-		repository.Database.Create(&dogData)
-		return dogData
-	}
-
-	repository.Database.Model(existingDogs[0]).Updates(dogData)
-
-	return dogData
+func DogIndex(callBack colly.HTMLCallback) error {
+	collector := colly.NewCollector()
+	collector.OnHTML(indexQuery, callBack)
+	return collector.Visit(baseUrl)
 }
 
-func FromHtml(element *colly.HTMLElement) (models.Dog, error) {
+func FromShowHtml(element *colly.HTMLElement) (models.Dog, error) {
 	foundDog := models.Dog{}
-	var err error
 
 	foundDog.Name = element.ChildText("H1")
 	foundDog.ShelterIdentifier = element.ChildText("div.text-lg.font-bold")
@@ -55,7 +47,12 @@ func FromHtml(element *colly.HTMLElement) (models.Dog, error) {
 			foundDog.IsMale = true
 		case strings.Contains(lineElement.Text, "Geburtstag: "):
 			birthday := strings.Replace(lineElement.Text, "Geburtstag: ", "", 1)
-			foundDog.BornAt, err = time.Parse(germanTimeLayout, birthday)
+			var err error
+			foundDog.BornAt, err = time.Parse(models.GermanTimeLayout, birthday)
+
+			if err != nil {
+				log.Println("getDogs:: error while formatting dog", err)
+			}
 		case strings.Contains(lineElement.Text, "Farben: "):
 			foundDog.Color = strings.Replace(lineElement.Text, "Farben: ", "", 1)
 		}
@@ -74,5 +71,20 @@ func FromHtml(element *colly.HTMLElement) (models.Dog, error) {
 	foundDog.Height, _ = strconv.Atoi(digitOnlyRegex.FindString(height))
 	foundDog.FetchedAt = time.Now()
 
-	return foundDog, err
+	return foundDog, nil
+}
+
+func FromIndexHtml(element *colly.HTMLElement) (models.Dog, error) {
+	foundDog := models.Dog{}
+
+	foundDog.Name = element.ChildText("H3")
+	foundDog.ShelterIdentifier = element.ChildText(".tsv-tiervermittlung-animal-id")
+
+	if foundDog.ShelterIdentifier == "" {
+		return foundDog, errors.New("FromHtml::could not find shelter identifier")
+	}
+
+	foundDog.FetchedAt = time.Now()
+
+	return foundDog, nil
 }

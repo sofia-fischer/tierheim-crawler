@@ -6,16 +6,16 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"net/http"
-	"tierheim-crawler/crawler"
 	"tierheim-crawler/database"
-	"tierheim-crawler/repositories"
+	"tierheim-crawler/models"
+	"tierheim-crawler/support"
 )
 
 func index(requestContext *gin.Context) {
-	repository := repositories.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
+	repository := models.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
 
-	crawler.DogFind("200078", func(element *colly.HTMLElement) {
-		foundDog, err := repositories.FromHtml(element)
+	_ = support.DogIndex(func(element *colly.HTMLElement) {
+		foundDog, err := support.FromIndexHtml(element)
 
 		if err != nil {
 			log.Println("getDogs:: error while formatting dog", err)
@@ -29,11 +29,11 @@ func index(requestContext *gin.Context) {
 }
 
 func show(requestContext *gin.Context) {
-	repository := repositories.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
+	repository := models.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
 	id := requestContext.Param("id")
 
-	crawler.DogFind(id, func(element *colly.HTMLElement) {
-		foundDog, err := repositories.FromHtml(element)
+	_ = support.DogShow(id, func(element *colly.HTMLElement) {
+		foundDog, err := support.FromShowHtml(element)
 
 		if err != nil {
 			log.Println("getDogs:: error while formatting dog", err)
