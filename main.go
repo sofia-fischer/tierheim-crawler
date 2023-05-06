@@ -6,15 +6,15 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"net/http"
+	"tierheim-crawler/crawler"
 	"tierheim-crawler/database"
 	"tierheim-crawler/repositories"
 )
 
-func getDogs(requestContext *gin.Context) {
-	collector := colly.NewCollector()
+func index(requestContext *gin.Context) {
 	repository := repositories.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
 
-	collector.OnHTML("main:not(.modal__content)", func(element *colly.HTMLElement) {
+	crawler.DogFind("200078", func(element *colly.HTMLElement) {
 		foundDog, err := repositories.FromHtml(element)
 
 		if err != nil {
@@ -26,8 +26,24 @@ func getDogs(requestContext *gin.Context) {
 
 		requestContext.IndentedJSON(http.StatusOK, foundDog)
 	})
+}
 
-	collector.Visit("https://tierschutzverein-muenchen.de/tiervermittlung/tierheim/hunde/200078")
+func show(requestContext *gin.Context) {
+	repository := repositories.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
+	id := requestContext.Param("id")
+
+	crawler.DogFind(id, func(element *colly.HTMLElement) {
+		foundDog, err := repositories.FromHtml(element)
+
+		if err != nil {
+			log.Println("getDogs:: error while formatting dog", err)
+			return
+		}
+
+		foundDog = repository.UpdateOrCreate(foundDog)
+
+		requestContext.IndentedJSON(http.StatusOK, foundDog)
+	})
 }
 
 func main() {
@@ -37,7 +53,8 @@ func main() {
 	// Add database context to request context
 	router.Use(addDatabaseContextMiddleware(db))
 
-	router.GET("/dogs", getDogs)
+	router.GET("/dogs", index)
+	router.GET("/dogs/:id", show)
 
 	router.Run("localhost:8080")
 }
