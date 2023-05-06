@@ -1,12 +1,15 @@
 package models
 
 import (
+	"gorm.io/gorm"
 	"time"
 )
 
 type Dog struct {
-	ID                string    `json:"id"`
-	ShelterIdentifier string    `json:"identifier"`
+	gorm.Model
+
+	ID                string    `gorm:"type:varchar(20);column:id;next:uuid"`
+	ShelterIdentifier string    `json:"identifier" gorm:"uniqueIndex"`
 	Name              string    `json:"name"`
 	Breed             string    `json:"breed"`
 	Color             string    `json:"color"`
@@ -17,6 +20,4 @@ type Dog struct {
 	BornAt            time.Time `json:"born_at"`
 	AdoptedAt         time.Time `json:"adopted_at"`
 	FetchedAt         time.Time `json:"fetched_at_at"`
-	LastUpdatedAt     time.Time `json:"updated_at"`
-	CreatedAt         time.Time `json:"created_at"`
 }

@@ -1,23 +1,37 @@
 package repositories
 
 import (
+	"errors"
 	"github.com/gocolly/colly"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"regexp"
 	"strconv"
 	"strings"
-	"tierheim-crawler/database"
 	"tierheim-crawler/models"
 	"time"
 )
 
-const germanTimeLayout = "01.02.2006"
+type DogRepository struct {
+	Database *gorm.DB
+}
 
-func UpdateOrCreate(existing models.Dog, updating models.Dog) models.Dog {
-	dog := existing
-	database.DB.FirstOrCreate(&dog, existing)
-	database.DB.Model(dog).Updates(updating)
+const germanTimeLayout = "02.01.2006"
 
-	return dog
+func (repository DogRepository) UpdateOrCreate(dogData models.Dog) models.Dog {
+
+	var existingDogs []models.Dog
+	repository.Database.Limit(1).Where("shelter_identifier = ?", dogData.ShelterIdentifier).Find(&existingDogs)
+
+	if len(existingDogs) == 0 {
+		dogData.ID = uuid.NewString()
+		repository.Database.Create(&dogData)
+		return dogData
+	}
+
+	repository.Database.Model(existingDogs[0]).Updates(dogData)
+
+	return dogData
 }
 
 func FromHtml(element *colly.HTMLElement) (models.Dog, error) {
@@ -26,6 +40,10 @@ func FromHtml(element *colly.HTMLElement) (models.Dog, error) {
 
 	foundDog.Name = element.ChildText("H1")
 	foundDog.ShelterIdentifier = element.ChildText("div.text-lg.font-bold")
+
+	if foundDog.ShelterIdentifier == "" {
+		return foundDog, errors.New("FromHtml::could not find shelter identifier")
+	}
 
 	element.ForEach("li", func(i int, lineElement *colly.HTMLElement) {
 		switch {
@@ -54,6 +72,7 @@ func FromHtml(element *colly.HTMLElement) (models.Dog, error) {
 	heightRegex := regexp.MustCompile(` (\d+) cm(\s|\.)`)
 	height := strings.TrimSpace(heightRegex.FindString(foundDog.Description))
 	foundDog.Height, _ = strconv.Atoi(digitOnlyRegex.FindString(height))
+	foundDog.FetchedAt = time.Now()
 
 	return foundDog, err
 }

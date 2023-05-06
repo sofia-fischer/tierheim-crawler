@@ -3,27 +3,18 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gocolly/colly"
+	"gorm.io/gorm"
 	"log"
 	"net/http"
 	"tierheim-crawler/database"
-	"tierheim-crawler/models"
 	"tierheim-crawler/repositories"
-	"time"
 )
 
 func getDogs(requestContext *gin.Context) {
 	collector := colly.NewCollector()
+	repository := repositories.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
 
-	//
-	//collector.OnError(func(_ *colly.Response, err error) {
-	//	log.Println("Something went wrong: ", err)
-	//})
-	//
-	//collector.OnResponse(func(r *colly.Response) {
-	//	fmt.Println("Page visited: ", r.Request.URL)
-	//})
-	//
-	collector.OnHTML("main", func(element *colly.HTMLElement) {
+	collector.OnHTML("main:not(.modal__content)", func(element *colly.HTMLElement) {
 		foundDog, err := repositories.FromHtml(element)
 
 		if err != nil {
@@ -31,23 +22,28 @@ func getDogs(requestContext *gin.Context) {
 			return
 		}
 
-		foundDog.FetchedAt = time.Now()
-		dog := models.Dog{ShelterIdentifier: foundDog.ShelterIdentifier}
-		dog = repositories.UpdateOrCreate(dog, foundDog)
+		foundDog = repository.UpdateOrCreate(foundDog)
 
 		requestContext.IndentedJSON(http.StatusOK, foundDog)
 	})
 
 	collector.Visit("https://tierschutzverein-muenchen.de/tiervermittlung/tierheim/hunde/200078")
-
-	//c.IndentedJSON(http.StatusOK, testDogs)
 }
 
 func main() {
-	database.ConnectDb()
-
+	db := database.ConnectDb()
 	router := gin.Default()
+
+	// Add database context to request context
+	router.Use(addDatabaseContextMiddleware(db))
+
 	router.GET("/dogs", getDogs)
 
 	router.Run("localhost:8080")
+}
+
+func addDatabaseContextMiddleware(db *gorm.DB) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		context.Set("database", db)
+	}
 }
