@@ -42,3 +42,32 @@ func (repository DogRepository) UpdateOrCreate(dogData Dog) Dog {
 
 	return dogData
 }
+
+func (repository DogRepository) FirstOrCreateByShelterId(identifier string) Dog {
+
+	var dog Dog
+	repository.Database.Where("shelter_identifier = ?", identifier).FirstOrCreate(&dog)
+
+	return dog
+}
+
+func (repository DogRepository) MarkAdoptedWhereNotIn(unadoptedDogs []Dog) []Dog {
+
+	// ids of unadopted dogs
+	unadoptedIds := make([]string, len(unadoptedDogs))
+	for _, dog := range unadoptedDogs {
+		unadoptedIds = append(unadoptedIds, dog.ID)
+	}
+
+	var adoptedDogs []Dog
+	repository.Database.
+		Where("adopted_at = ?", time.Time{}).
+		Not("id IN ?", unadoptedIds).
+		Find(&adoptedDogs)
+
+	for _, dog := range adoptedDogs {
+		repository.Database.Model(dog).Update("adopted_at", time.Now())
+	}
+
+	return adoptedDogs
+}

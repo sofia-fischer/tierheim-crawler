@@ -18,12 +18,14 @@ const indexQuery = "div.tsv-tiervermittlung-animal-name"
 func DogShow(identifier string, callBack colly.HTMLCallback) error {
 	collector := colly.NewCollector()
 	collector.OnHTML(showQuery, callBack)
+	collector.Wait()
 	return collector.Visit(baseUrl + "/" + identifier)
 }
 
 func DogIndex(callBack colly.HTMLCallback) error {
 	collector := colly.NewCollector()
 	collector.OnHTML(indexQuery, callBack)
+	collector.Wait()
 	return collector.Visit(baseUrl)
 }
 

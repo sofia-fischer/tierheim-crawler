@@ -2,9 +2,7 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/gocolly/colly"
 	"gorm.io/gorm"
-	"log"
 	"net/http"
 	"tierheim-crawler/database"
 	"tierheim-crawler/models"
@@ -13,37 +11,18 @@ import (
 
 func index(requestContext *gin.Context) {
 	repository := models.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
+	service := support.NewCrawlerService(repository)
+	dogs := service.CrawlIndex()
 
-	_ = support.DogIndex(func(element *colly.HTMLElement) {
-		foundDog, err := support.FromIndexHtml(element)
-
-		if err != nil {
-			log.Println("getDogs:: error while formatting dog", err)
-			return
-		}
-
-		foundDog = repository.UpdateOrCreate(foundDog)
-
-		requestContext.IndentedJSON(http.StatusOK, foundDog)
-	})
+	requestContext.IndentedJSON(http.StatusOK, dogs)
 }
 
 func show(requestContext *gin.Context) {
 	repository := models.DogRepository{Database: requestContext.MustGet("database").(*gorm.DB)}
-	id := requestContext.Param("id")
-
-	_ = support.DogShow(id, func(element *colly.HTMLElement) {
-		foundDog, err := support.FromShowHtml(element)
-
-		if err != nil {
-			log.Println("getDogs:: error while formatting dog", err)
-			return
-		}
-
-		foundDog = repository.UpdateOrCreate(foundDog)
-
-		requestContext.IndentedJSON(http.StatusOK, foundDog)
-	})
+	dog := repository.FirstOrCreateByShelterId(requestContext.Param("id"))
+	service := support.NewCrawlerService(repository)
+	updatedDog := service.CrawlDetails(dog)
+	requestContext.IndentedJSON(http.StatusOK, updatedDog)
 }
 
 func main() {
