@@ -11,25 +11,46 @@ import (
 	"time"
 )
 
-const baseUrl = "https://tierschutzverein-muenchen.de/tiervermittlung/tierheim/hunde"
-const showQuery = "main:not(.modal__content)"
-const indexQuery = "div.tsv-tiervermittlung-animal-name"
-
-func DogShow(identifier string, callBack colly.HTMLCallback) error {
-	collector := colly.NewCollector()
-	collector.OnHTML(showQuery, callBack)
-	collector.Wait()
-	return collector.Visit(baseUrl + "/" + identifier)
+type DogIdentifierService struct {
+	baseUrl    string
+	showQuery  string
+	indexQuery string
 }
 
-func DogIndex(callBack colly.HTMLCallback) error {
-	collector := colly.NewCollector()
-	collector.OnHTML(indexQuery, callBack)
-	collector.Wait()
-	return collector.Visit(baseUrl)
+type DogIdentifierServiceInterface interface {
+	dogShow(identifier string, callBack colly.HTMLCallback) error
+	dogIndex(callBack colly.HTMLCallback) error
+	fromShowHtml(element *colly.HTMLElement) (models.Dog, error)
+	fromIndexHtml(element *colly.HTMLElement) (models.Dog, error)
 }
 
-func FromShowHtml(element *colly.HTMLElement) (models.Dog, error) {
+func NewDogIdentifierService() *DogIdentifierService {
+	return &DogIdentifierService{
+		baseUrl:    "https://tierschutzverein-muenchen.de/tiervermittlung/tierheim/hunde",
+		showQuery:  "main:not(.modal__content)",
+		indexQuery: "div.tsv-tiervermittlung-animal-name",
+	}
+}
+
+func (service *DogIdentifierService) dogShow(identifier string, callBack colly.HTMLCallback) error {
+	collector := colly.NewCollector()
+	collector.OnHTML(service.showQuery, callBack)
+	err := collector.Visit(service.baseUrl + "/" + identifier)
+	collector.Wait()
+
+	return err
+}
+
+func (service *DogIdentifierService) dogIndex(callBack colly.HTMLCallback) error {
+	collector := colly.NewCollector()
+	collector.OnHTML(service.indexQuery, callBack)
+	err := collector.Visit(service.baseUrl)
+	collector.Wait()
+
+	return err
+}
+
+func (service *DogIdentifierService) fromShowHtml(element *colly.HTMLElement) (models.Dog, error) {
 	foundDog := models.Dog{}
 
 	foundDog.Name = element.ChildText("H1")
@@ -76,7 +97,7 @@ func FromShowHtml(element *colly.HTMLElement) (models.Dog, error) {
 	return foundDog, nil
 }
 
-func FromIndexHtml(element *colly.HTMLElement) (models.Dog, error) {
+func (service *DogIdentifierService) fromIndexHtml(element *colly.HTMLElement) (models.Dog, error) {
 	foundDog := models.Dog{}
 
 	foundDog.Name = element.ChildText("H3")

@@ -7,22 +7,23 @@ import (
 )
 
 type CrawlerService struct {
-	repository models.DogRepository
+	repository           models.DogRepository
+	dogIdentifierService DogIdentifierServiceInterface
 }
 
 func NewCrawlerService(repository models.DogRepository) CrawlerService {
-	return CrawlerService{repository: repository}
+	return CrawlerService{repository, NewDogIdentifierService()}
 }
 
-func (service CrawlerService) CrawlIndex() []models.Dog {
+func (service *CrawlerService) CrawlIndex() []models.Dog {
 	// list of all crawled dogs
 	fetchedDogs := make([]models.Dog, 0)
 	// list of created dogs
 	createdDogs := make([]models.Dog, 0)
 
 	// crawl index page
-	_ = DogIndex(func(element *colly.HTMLElement) {
-		foundDog, err := FromIndexHtml(element)
+	_ = service.dogIdentifierService.dogIndex(func(element *colly.HTMLElement) {
+		foundDog, err := service.dogIdentifierService.fromIndexHtml(element)
 
 		if err != nil {
 			log.Println("getDogs:: error while formatting dog", err)
@@ -48,9 +49,10 @@ func (service CrawlerService) CrawlIndex() []models.Dog {
 	return fetchedDogs
 }
 
-func (service CrawlerService) CrawlDetails(dog models.Dog) models.Dog {
-	_ = DogShow(dog.ShelterIdentifier, func(element *colly.HTMLElement) {
-		foundDog, err := FromShowHtml(element)
+func (service *CrawlerService) CrawlDetails(dog models.Dog) models.Dog {
+
+	_ = service.dogIdentifierService.dogShow(dog.ShelterIdentifier, func(element *colly.HTMLElement) {
+		foundDog, err := service.dogIdentifierService.fromShowHtml(element)
 
 		if err != nil {
 			log.Println("getDogs:: error while formatting dog", err)
@@ -59,7 +61,7 @@ func (service CrawlerService) CrawlDetails(dog models.Dog) models.Dog {
 
 		foundDog.ID = dog.ID
 
-		foundDog = service.repository.UpdateOrCreate(foundDog)
+		dog = service.repository.UpdateOrCreate(foundDog)
 	})
 
 	return dog

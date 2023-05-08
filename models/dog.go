@@ -27,6 +27,11 @@ type DogRepository struct {
 	Database *gorm.DB
 }
 
+func (repository DogRepository) query() *gorm.DB {
+
+	return repository.Database
+}
+
 func (repository DogRepository) UpdateOrCreate(dogData Dog) Dog {
 
 	var existingDogs []Dog
