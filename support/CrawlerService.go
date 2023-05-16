@@ -33,7 +33,7 @@ func (service *CrawlerService) CrawlIndex() []models.Dog {
 		foundDog = service.repository.UpdateOrCreate(foundDog)
 		fetchedDogs = append(fetchedDogs, foundDog)
 
-		if foundDog.CreatedAt == foundDog.UpdatedAt {
+		if foundDog.CreatedAt.Date() == foundDog.UpdatedAt.Date() {
 			createdDogs = append(createdDogs, foundDog)
 		}
 	})
